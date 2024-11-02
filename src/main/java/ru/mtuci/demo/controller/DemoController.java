@@ -3,7 +3,7 @@ package ru.mtuci.demo.controller;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import ru.mtuci.demo.model.Demo;
-import ru.mtuci.demo.service.DemoService;
+import ru.mtuci.demo.service.impl.DemoService;
 
 import java.util.List;
 

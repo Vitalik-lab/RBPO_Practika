@@ -5,7 +5,7 @@ import org.springframework.web.bind.annotation.*;
 import ru.mtuci.demo.model.Demo;
 import ru.mtuci.demo.model.Details;
 import ru.mtuci.demo.repository.DetailsRepository;
-import ru.mtuci.demo.service.DemoService;
+import ru.mtuci.demo.service.impl.DemoService;
 
 @RestController
 @RequestMapping("/details")

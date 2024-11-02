@@ -1,25 +1,29 @@
 package ru.mtuci.demo.configuration;
 
 import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.Jws;
-import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.stereotype.Component;
 
 import java.security.Key;
+import java.util.Collection;
 import java.util.Date;
-import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
 @Component
 @RequiredArgsConstructor
 public class JwtTokenProvider {
+
+    private final UserDetailsService userDetailsService;
 
     @Value("${jwt.secret}")
     private String secret;
@@ -31,56 +35,64 @@ public class JwtTokenProvider {
         return Keys.hmacShaKeyFor(secret.getBytes());
     }
 
+    //TODO: реализовать методы создания, валидации и получения информации из JWT токена
     public String createToken(String username, Set<GrantedAuthority> authorities) {
         Claims claims = Jwts.claims().setSubject(username);
-        claims.put("authorities", authorities.stream()
+        claims.put("auth", authorities.stream()
                 .map(GrantedAuthority::getAuthority)
-                .collect(Collectors.toList()));
+                .collect(Collectors.toList())
+        );
 
         Date now = new Date();
-        Date validity = new Date(now.getTime() + expiration * 1000);
+        Date expiationDate = new Date(now.getTime() + expiration);
 
         return Jwts.builder()
                 .setClaims(claims)
                 .setIssuedAt(now)
-                .setExpiration(validity)
+                .setExpiration(expiationDate)
                 .signWith(getSigningKey())
                 .compact();
     }
 
     public boolean validateToken(String token) {
         try {
-            Jws<Claims> claims = Jwts.parserBuilder()
+            Jwts.parserBuilder()
                     .setSigningKey(getSigningKey())
                     .build()
                     .parseClaimsJws(token);
 
-            return !claims.getBody().getExpiration().before(new Date());
-        } catch (JwtException | IllegalArgumentException e) {
-            // Логирование ошибок
+            return true;
+        } catch (Exception e) {
             return false;
         }
+
     }
 
     public String getUsername(String token) {
+        System.out.println(getAuthorities(token));
         return Jwts.parserBuilder()
                 .setSigningKey(getSigningKey())
                 .build()
                 .parseClaimsJws(token)
                 .getBody()
                 .getSubject();
+
     }
 
     public Set<GrantedAuthority> getAuthorities(String token) {
-        List<String> authorities = Jwts.parserBuilder()
+        return ((Collection<?>) Jwts.parserBuilder()
                 .setSigningKey(getSigningKey())
                 .build()
                 .parseClaimsJws(token)
                 .getBody()
-                .get("authorities", List.class);
-
-        return authorities.stream()
-                .map(SimpleGrantedAuthority::new)
+                .get("auth", Collection.class)).stream()
+                .map(authority -> new SimpleGrantedAuthority((String) authority))
                 .collect(Collectors.toSet());
+    }
+
+    public Authentication getAuthentication(String token) {
+        String username = getUsername(token);
+        UserDetails userDetails = userDetailsService.loadUserByUsername(username);
+        return new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
     }
 }
